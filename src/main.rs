@@ -1,11 +1,13 @@
 extern crate getopts;
 
+use std::fs::File;
 use std::io::prelude::*;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::io;
 
 fn main() {
 	println!("Running rcat");
+
 	let args = std::env::args().collect::<Vec<String>>();
 	let program = args[0].clone();
 
@@ -52,7 +54,7 @@ fn write(port: u16){
 		loop {
 			let mut input = String::new();
 			io::stdin().read_line(&mut input);
-			println!("Sent: {}", input.trim());
+			print!("{}", input.trim());
 			stream.write(input.as_bytes());
 		}
 	} else {
@@ -62,18 +64,30 @@ fn write(port: u16){
 
 fn listen(port: u16){
 	println!("Listening on port {:?}", port);
-	let listener = TcpListener::bind(("127.0.0.1", port)).unwrap();
-
-	for stream in listener.incoming() {
-		let stream = stream.unwrap();
-		handle_connection(stream);
+	match TcpListener::bind(("127.0.0.1", port)) {
+		Ok(listener) => {
+			for stream in listener.incoming() {
+				let stream = stream.unwrap();
+				handle_connection(stream);
+			}
+		},
+		Err(e) => {println!("Error: {}", e)}
 	}
 }
 
+
 fn handle_connection(mut stream: TcpStream){
+	let mut file = File::create("log.txt").expect("Error");
 	loop {
 		let mut buffer = [0; 512];
-		stream.read(&mut buffer).unwrap();
-		println!("Received: {}", String::from_utf8_lossy(&buffer[..]));
+		match stream.read(&mut buffer) {
+			Ok(s) => {
+				if s == 0 { return }
+				let received = String::from_utf8_lossy(&buffer[..]);
+				print!("{}", received);
+				file.write(&buffer[..s]);
+			},
+			Err(e) => {println!("Error: {}", e)}
+		}
 	}
 }
